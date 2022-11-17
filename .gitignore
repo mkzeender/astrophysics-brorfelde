@@ -2,3 +2,5 @@ binast_20190106/*
 th.ipynbo
 *.ipynb_checkpoints/*
 MBAFiles/*
+processed/*
+processed_uncorrected
