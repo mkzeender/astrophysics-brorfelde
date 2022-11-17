@@ -4,3 +4,4 @@ th.ipynbo
 MBAFiles/*
 processed/*
 processed_uncorrected
+*__pycache__*
