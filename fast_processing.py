@@ -68,3 +68,7 @@ def fast_process(image_cube_list, output_dir, chunk_size, exp_time, darkbias, fl
     with ProcessPoolExecutor() as pool:
         print('starting process')
         pool.map(marckie_slice_combine_reduce, image_cube_list, [output_dir]*length, [chunk_size]*length, [exp_time]*length, [darkbias]*length, [flat]*length, [do_offset]*length)
+
+
+
+
