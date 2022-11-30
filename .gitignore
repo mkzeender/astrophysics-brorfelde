@@ -7,3 +7,4 @@ processed_uncorrected
 *__pycache__*
 .vscode/launch.json
 .vscode/settings.json
+aligned/*
