@@ -18,15 +18,21 @@ def do_photometry_with_timestamps(
         start_object_t,
         end_object_x,
         end_object_y,
-        end_object_t
+        end_object_t,
+        aperture_=15,
+        annulus_inner=25,
+        annulus_outer=45,
+        dry_run=False
         ):
 
     deltax_total = end_object_x - start_object_x
     deltay_total = end_object_y - start_object_y
-    deltat_total = end_object_t.timestamp() -  start_object_t.timestamp()
+    end_object_t, start_object_t = parse(end_object_t).timestamp(), parse(start_object_t).timestamp()
 
-    velocity_x = deltax_total / deltat_total
-    velocity_y = deltay_total / deltat_total
+    delta_t_total = end_object_t - start_object_t
+
+    velocity_x = deltax_total / delta_t_total
+    velocity_y = deltay_total / delta_t_total
 
     photometry_target = pd.DataFrame(columns = ["num", "id", "xcenter", "ycenter", "aperture_sum", "total_bkg", "aperture_sum_bkgsub"])
     photometry_star = pd.DataFrame(columns = ["num", "id", "xcenter", "ycenter", "aperture_sum", "total_bkg", "aperture_sum_bkgsub"])
@@ -41,31 +47,34 @@ def do_photometry_with_timestamps(
         object_position_x = start_object_x + velocity_x * delta_t_obj
         object_position_y = start_object_y + velocity_y * delta_t_obj
         
-        target_position = (348, 971)
-        positions = [target_position, (object_position_x, object_position_y)]
-        
-        aperture = 15
-        annulus_inner = 25
-        annulus_outer = 45
-        
-        aperture = CircularAperture(positions, r = aperture)
+        #target_position = (348, 971)
+        #positions = [target_position, (object_position_x, object_position_y)]
+        positions = [(object_position_x, object_position_y)] # ADD OTHERS?
+
+        aperture = CircularAperture(positions, r = aperture_)
         annulus_aperture = CircularAnnulus(positions, r_in = annulus_inner, r_out = annulus_outer)
         
-        phot_table = aperture_photometry(img, aperture)
-        aperstats = ApertureStats(img, annulus_aperture)
-        bkg_mean = aperstats.mean
-        aperture_area = aperture.area_overlap(img)
-        total_bkg = bkg_mean * aperture_area
-        phot_table['total_bkg'] = total_bkg
-        phot_bkgsub = phot_table['aperture_sum'] - total_bkg
-        phot_table['aperture_sum_bkgsub'] = phot_bkgsub
+        if dry_run:
+            fig, ax = plt.subplots()
+            aperture.plot(ax, color='red', lw=1, label='Photometry aperture')
 
-        for col in phot_table.colnames:
-            phot_table[col].info.format = '%.8g'  # for consistent table output
-        
-        phot_dataframe = pd.DataFrame(np.array(phot_table))
-        photometry_target.loc[i] = phot_dataframe.iloc[0]
-        photometry_star.loc[i] = phot_dataframe.iloc[1]
+            plt.show()
+        else:
+            phot_table = aperture_photometry(img, aperture)
+            aperstats = ApertureStats(img, annulus_aperture)
+            bkg_mean = aperstats.mean
+            aperture_area = aperture.area_overlap(img)
+            total_bkg = bkg_mean * aperture_area
+            phot_table['total_bkg'] = total_bkg
+            phot_bkgsub = phot_table['aperture_sum'] - total_bkg
+            phot_table['aperture_sum_bkgsub'] = phot_bkgsub
+
+            for col in phot_table.colnames:
+                phot_table[col].info.format = '%.8g'  # for consistent table output
+            
+            phot_dataframe = pd.DataFrame(np.array(phot_table))
+            photometry_target.loc[i] = phot_dataframe.iloc[0]
+            photometry_star.loc[i] = phot_dataframe.iloc[1]
         ## add more here if there are more than 2 apertures
         
     combined_data = pd.DataFrame(columns = ["target_subtracted_counts", "object_subtracted_counts", "num"])
