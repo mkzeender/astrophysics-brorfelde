@@ -24,7 +24,8 @@ def do_photometry_with_timestamps(
         annulus_outer=45,
         dry_run=False
         ):
-
+    images = list(images)
+    
     deltax_total = end_object_x - start_object_x
     deltay_total = end_object_y - start_object_y
     end_object_t, start_object_t = parse(end_object_t).timestamp(), parse(start_object_t).timestamp()
@@ -37,7 +38,7 @@ def do_photometry_with_timestamps(
     photometry_target = pd.DataFrame(columns = ["num", "id", "xcenter", "ycenter", "aperture_sum", "total_bkg", "aperture_sum_bkgsub"])
     photometry_star = pd.DataFrame(columns = ["num", "id", "xcenter", "ycenter", "aperture_sum", "total_bkg", "aperture_sum_bkgsub"])
 
-    for img_path in images:
+    for i, img_path in enumerate(images):
         img_open = fits.open(Path(img_path))
         img = img_open[0].data
 
@@ -55,10 +56,15 @@ def do_photometry_with_timestamps(
         annulus_aperture = CircularAnnulus(positions, r_in = annulus_inner, r_out = annulus_outer)
         
         if dry_run:
-            fig, ax = plt.subplots()
-            aperture.plot(ax, color='red', lw=1, label='Photometry aperture')
+            if not i % (len(images) // 5):
+                fig, ax = plt.subplots()
+                ax.invert_yaxis()
 
-            plt.show()
+                ax.imshow(img, cmap='gray', vmin=0, vmax=255)
+                aperture.plot(ax, color='red', lw=1, label='Photometry aperture')
+                annulus_aperture.plot(ax, color='green', lw=1, label='Photo annulus')
+
+                plt.show(block=True)
         else:
             phot_table = aperture_photometry(img, aperture)
             aperstats = ApertureStats(img, annulus_aperture)
@@ -74,7 +80,7 @@ def do_photometry_with_timestamps(
             
             phot_dataframe = pd.DataFrame(np.array(phot_table))
             photometry_target.loc[i] = phot_dataframe.iloc[0]
-            photometry_star.loc[i] = phot_dataframe.iloc[1]
+            # photometry_star.loc[i] = phot_dataframe.iloc[1]
         ## add more here if there are more than 2 apertures
         
     combined_data = pd.DataFrame(columns = ["target_subtracted_counts", "object_subtracted_counts", "num"])
