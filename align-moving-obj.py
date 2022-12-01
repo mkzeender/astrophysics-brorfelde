@@ -77,6 +77,6 @@ def do_photometry_with_timestamps(
     combined_data["differential_mag"] = combined_data["uncalibrated_object_mag"] - combined_data["uncalibrated_target_mag"]
     for i in range(len(combined_data)):
         combined_data["num"].loc[i] = i
-    plt.scatter(combined_data["num"], combined_data["differential"])
+    #plt.scatter(combined_data["num"], combined_data["differential"])
 
     return combined_data
