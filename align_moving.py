@@ -59,7 +59,7 @@ def do_photometry_with_timestamps(
     velocity_x = deltax_total / delta_t_total
     velocity_y = deltay_total / delta_t_total
 
-    photometry_target = pd.DataFrame(columns = ["num", "id", "xcenter", "ycenter", "aperture_sum", "total_bkg", "aperture_sum_bkgsub"])
+    photometry_target = pd.DataFrame(columns = ["num", "id", "xcenter", "ycenter", "aperture_sum", "total_bkg", "aperture_sum_bkgsub", 'timestamp'])
     photometry_star_list = [
         pd.DataFrame(columns = ["num", "id", "xcenter", "ycenter", "aperture_sum", "total_bkg", "aperture_sum_bkgsub"])
         for _ in reference_positions
@@ -69,7 +69,8 @@ def do_photometry_with_timestamps(
         img_open = fits.open(Path(img_path))
         img = img_open[0].data
 
-        t_obj = parse(img_open[0].header['DATE-OBS']).timestamp()
+        t_obj_readable = parse(img_open[0].header['DATE-OBS'])
+        t_obj = t_obj_readable.timestamp()
 
         delta_t_obj = t_obj - start_object_t
         object_position_x = start_object_x + velocity_x * delta_t_obj
@@ -110,23 +111,29 @@ def do_photometry_with_timestamps(
             for j in range(len(reference_positions)):
                 photometry_star_list[j].loc[i] = phot_dataframe.iloc[j]
             photometry_target.loc[i] = phot_dataframe.iloc[j+1]
+            photometry_target['timestamp'].iloc[i] = t_obj_readable
         ## add more here if there are more than 2 apertures
 
-    photometry_star_mean = pd.DataFrame(columns = ["num", "id", "xcenter", "ycenter", "aperture_sum", "total_bkg", "aperture_sum_bkgsub"])
+    #photometry_star_mean = pd.DataFrame(columns = ["num", "id", "xcenter", "ycenter", "aperture_sum", "total_bkg", "aperture_sum_bkgsub"])
 
+    photometry_star_mean = photometry_star_list[0]
     # calculate the mean values for all the stars
-    for data_frame in photometry_star_list:
+    for data_frame in photometry_star_list[1:]:
         photometry_star_mean += data_frame
     
-    photometry_star_mean /= len(photometry_star_list)
     
-    combined_data = pd.DataFrame(columns = ["target_subtracted_counts", "star_subtracted_counts", "num"])
+    photometry_star_mean /= len(photometry_star_list)
+    print(photometry_star_mean['aperture_sum_bkgsub'])
+
+    combined_data = pd.DataFrame(columns = ["target_subtracted_counts", "star_subtracted_counts", "num", 'timestamp'])
     combined_data["target_subtracted_counts"] = photometry_target["aperture_sum_bkgsub"]
     combined_data["star_subtracted_counts"] = photometry_star_mean["aperture_sum_bkgsub"]
-    combined_data["differential"] = combined_data["star_subtracted_counts"] - combined_data["target_subtracted_counts"]
-    combined_data["uncalibrated_object_mag"] = -2.5 * np.log10(combined_data["star_subtracted_counts"])
+    combined_data["differential"] = combined_data["target_subtracted_counts"] - combined_data["star_subtracted_counts"]
+    combined_data["uncalibrated_star_mag"] = -2.5 * np.log10(combined_data["star_subtracted_counts"])
     combined_data["uncalibrated_target_mag"] = -2.5 * np.log10(combined_data["target_subtracted_counts"])
-    combined_data["differential_mag"] = combined_data["uncalibrated_object_mag"] - combined_data["uncalibrated_target_mag"]
+    combined_data["differential_mag"] = combined_data["uncalibrated_target_mag"] - combined_data["uncalibrated_star_mag"]
+
+    combined_data['timestamp'] = photometry_target['timestamp']
     for i in range(len(combined_data)):
         combined_data["num"].loc[i] = i
     #plt.scatter(combined_data["num"], combined_data["differential"])
