@@ -111,7 +111,7 @@ def do_photometry_with_timestamps(
             for j in range(len(reference_positions)):
                 photometry_star_list[j].loc[i] = phot_dataframe.iloc[j]
             photometry_target.loc[i] = phot_dataframe.iloc[j+1]
-            photometry_target.iloc[i].loc['timestamp'] = t_obj_readable
+            photometry_target.loc[i, 'timestamp'] = t_obj_readable
         ## add more here if there are more than 2 apertures
 
     #photometry_star_mean = pd.DataFrame(columns = ["num", "id", "xcenter", "ycenter", "aperture_sum", "total_bkg", "aperture_sum_bkgsub"])
@@ -123,7 +123,6 @@ def do_photometry_with_timestamps(
     
     
     photometry_star_mean /= len(photometry_star_list)
-    print(photometry_star_mean['aperture_sum_bkgsub'])
 
     combined_data = pd.DataFrame(columns = ["target_subtracted_counts", "star_subtracted_counts", "num", 'timestamp'])
     combined_data["target_subtracted_counts"] = photometry_target["aperture_sum_bkgsub"]
@@ -135,7 +134,7 @@ def do_photometry_with_timestamps(
 
     combined_data['timestamp'] = photometry_target['timestamp']
     for i in range(len(combined_data)):
-        combined_data.iloc[i].loc["num"] = i
+        combined_data.loc[i, "num"] = i
     #plt.scatter(combined_data["num"], combined_data["differential"])
 
     return combined_data
