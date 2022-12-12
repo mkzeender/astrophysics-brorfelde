@@ -27,7 +27,7 @@ def get_coords_of_point(images, vmin=0, vmax=255):
         for image in images:
             with fits.open(image) as img_open:
                 img = img_open[0].data
-                t = img_open[0].header['DATE-OBS']
+                t = parse(img_open[0].header['DATE-OBS'])
 
                 data.append(ApPhotIm(t, img,)) #CircularAperture([], 13*3)))
 
