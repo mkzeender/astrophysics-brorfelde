@@ -2,6 +2,7 @@
 from collections import namedtuple
 from dataclasses import dataclass
 from datetime import datetime
+from numbers import Number
 from typing import List, Optional
 import numpy as np
 import pandas as pd
@@ -127,7 +128,7 @@ class MotionFigure:
 
     def _print_coords(self, sel):
         x, y = sel.target
-        print(repr(TargetLoc(x, y, self.data[self.i].t)))
+        print(repr(TargetLoc(x, y, self.data[self.i].t.isoformat())))
         sel.annotation.set_text(f'{sel.target[0]}, {sel.target[1]}, {self.data[self.i].t}')
 
     def show(self):
@@ -148,7 +149,9 @@ def do_photometry_with_timestamps(
         reference_positions: List[TargetLoc] = None,
 
         vmin = 0,
-        vmax = 255
+        vmax = 255,
+
+        exp_time: Number=10 # seconds
         ):
     images = list(images)
     
@@ -175,7 +178,8 @@ def do_photometry_with_timestamps(
         with fits.open(Path(img_path)) as img_open:
             img = img_open[0].data
 
-            t_obj_readable = parse(img_open[0].header['DATE-OBS'])
+            t_obj_string = img_open[0].header['DATE-OBS']
+            t_obj_readable = parse(t_obj_string)
             t_obj = t_obj_readable.timestamp()
 
         delta_t_obj = t_obj - start_object_t
@@ -230,25 +234,39 @@ def do_photometry_with_timestamps(
 
         raise DryRunDone('#not_an_error')
 
-    photometry_star_mean = photometry_star_list[0]
-    # calculate the mean values for all the stars
-    for data_frame in photometry_star_list[1:]:
-        photometry_star_mean += data_frame
+    # photometry_star_mean = photometry_star_list[0]
+    # # calculate the mean values for all the stars
+    # for data_frame in photometry_star_list[1:]:
+    #     photometry_star_mean += data_frame
     
     
-    photometry_star_mean /= len(photometry_star_list)
+    # photometry_star_mean /= len(photometry_star_list)
 
-    combined_data = pd.DataFrame(columns = ["target_subtracted_counts", "star_subtracted_counts", "num", 'timestamp'])
+    combined_data = pd.DataFrame(
+        columns = ["target_subtracted_counts", 'timestamp'] +
+        [f"star_{i}_subtracted_counts" for i in range(len(photometry_star_list))]
+        )
+
     combined_data["target_subtracted_counts"] = photometry_target["aperture_sum_bkgsub"]
-    combined_data["star_subtracted_counts"] = photometry_star_mean["aperture_sum_bkgsub"]
-    combined_data["differential"] = combined_data["target_subtracted_counts"] - combined_data["star_subtracted_counts"]
-    combined_data["uncalibrated_star_mag"] = -2.5 * np.log10(combined_data["star_subtracted_counts"])
-    combined_data["uncalibrated_target_mag"] = -2.5 * np.log10(combined_data["target_subtracted_counts"])
-    combined_data["differential_mag"] = combined_data["uncalibrated_target_mag"] - combined_data["uncalibrated_star_mag"]
+    combined_data["uncalibrated_target_mag"] = -2.5 * np.log10(combined_data["target_subtracted_counts"] / exp_time)
+
+    combined_data["star_subtracted_counts_mean"] = 0
+
+    for i, phot_star_df in enumerate(photometry_star_list):
+        combined_data[f"star_{i}_subtracted_counts"] = phot_star_df["aperture_sum_bkgsub"]
+        combined_data["star_subtracted_counts_mean"] += combined_data[f"star_{i}_subtracted_counts"]
+
+        combined_data[f"uncalibrated_star_{i}_mag"] = -2.5 * np.log10(combined_data[f"star_{i}_subtracted_counts"] / exp_time)
+
+    # turn sum into mean by dividing by length
+    combined_data["star_subtracted_counts_mean"] /= len(photometry_star_list)
+
+    combined_data["uncalibrated_star_mag_mean"] = -2.5 * np.log10(combined_data[f"star_subtracted_counts_mean"] / exp_time)
+    
+    combined_data["differential_counts"] = combined_data["target_subtracted_counts"] - combined_data["star_subtracted_counts_mean"]
+    combined_data["differential_mag"] = combined_data["uncalibrated_target_mag"] - combined_data["uncalibrated_star_mag_mean"]
 
     combined_data['timestamp'] = photometry_target['timestamp']
-    for i in range(len(combined_data)):
-        combined_data.loc[i, "num"] = i
-    #plt.scatter(combined_data["num"], combined_data["differential"])
+    
 
     return combined_data
